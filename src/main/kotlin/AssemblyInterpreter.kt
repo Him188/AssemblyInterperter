@@ -73,7 +73,7 @@ private inline class Accept(
 }
 
 abstract class AssemblyInterpreter(
-    private val inputFlow: ReceiveChannel<Int>,
+    private val inputChannel: ReceiveChannel<Int>,
     private val outputChannel: SendChannel<Int>
 ) {
     private val memory: Memory = Memory()
@@ -234,7 +234,7 @@ abstract class AssemblyInterpreter(
                     return false
                 }
             }
-            IN -> ACC.value = inputFlow.receive()
+            IN -> ACC.value = inputChannel.receive()
             OUT -> outputChannel.send(ACC.value)
             END -> return false
         }

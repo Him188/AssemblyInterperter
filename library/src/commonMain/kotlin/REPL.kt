@@ -4,15 +4,11 @@ package moe.him188.assembly.interpreter
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.*
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.receiveAsFlow
-import java.io.InputStream
-import java.io.OutputStream
+import kotlinx.coroutines.flow.*
 
-@OptIn(FlowPreview::class)
-suspend fun main() {
-    println()
-
+suspend fun runRepl(
+    standardOutput: SendChannel<Int>
+) {
     val callParser = CallParser()
     var lineNumber = 0
 
@@ -33,10 +29,10 @@ suspend fun main() {
 
         executor = ReplAssemblyInterpreter(
             SmartLineReader(coroutineScope, executeChannel).run {
-                //flow<String> { readLine() }.map { it.takeSingle() }.produceIn(coroutineScope)
-                Channel()
+                @OptIn(FlowPreview::class)
+                flow<String> { readLine() }.map { it.takeSingle() }.produceIn(coroutineScope)
             },
-            System.`out`.asOutputChannel(coroutineScope)
+            standardOutput
         )
     }
 }
@@ -44,6 +40,8 @@ suspend fun main() {
 private fun String.takeSingle(): Int {
     return singleOrNull()?.toInt() ?: error("Only single character is accepted.")
 }
+
+internal expect fun standardReadLine(): String?
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SmartLineReader(
@@ -63,38 +61,11 @@ class SmartLineReader(
         }
         coroutineScope.launch {
             while (isActive) {
-                withContext(Dispatchers.IO) {
-                    print("ASSEMBLY > ")
-                    temp.send(kotlin.io.readLine() ?: return@withContext)
-                }
+                print("ASSEMBLY> ")
+                temp.send(standardReadLine() ?: continue)
             }
         }
     }
 
     suspend fun readLine(): String = temp.receive()
-}
-
-@OptIn(ExperimentalCoroutinesApi::class)
-fun OutputStream.asOutputChannel(coroutineScope: CoroutineScope): SendChannel<Int> {
-    val channel = Channel<Int>()
-
-    coroutineScope.launch {
-        while (true) {
-            val char = channel.receiveOrNull() ?: return@launch
-            write(char)
-        }
-    }
-
-    return channel
-}
-
-fun InputStream.asInputChannel(coroutineScope: CoroutineScope): ReceiveChannel<Int> {
-    val channel = Channel<Int>()
-    val buffered = this.bufferedReader()
-
-    coroutineScope.launch {
-        val line = withContext(Dispatchers.IO) { buffered.readLine() } ?: return@launch
-        channel.sendBlocking(line.singleOrNull()?.toInt() ?: error("Only single character is accepted."))
-    }
-    return channel
 }

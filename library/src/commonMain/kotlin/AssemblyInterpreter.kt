@@ -13,7 +13,7 @@ import moe.him188.assembly.interpreter.Register.ACC
 import moe.him188.assembly.interpreter.Register.IX
 import moe.him188.assembly.interpreter.descriptor.*
 import moe.him188.assembly.interpreter.descriptor.Instruction.*
-import java.util.*
+import moe.him188.assembly.interpreter.util.EnumMap
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
@@ -77,7 +77,7 @@ abstract class AssemblyInterpreter(
     private val outputChannel: SendChannel<Int>
 ) {
     private val memory: Memory = Memory()
-    private val register: MutableMap<Register, Int> = EnumMap<Register, Int>(Register::class.java).apply {
+    private val register: MutableMap<Register, Int> = EnumMap<Register, Int>(Register::class).apply {
         put(IX, 0)
     }
 

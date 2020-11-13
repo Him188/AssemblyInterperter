@@ -19,7 +19,7 @@ fun readFile(filename: String): String? {
         stat(filename, fileStat.ptr)
         val size = fileStat.st_size + 1
         val bytes = allocArray<ByteVar>(size)
-        fread(bytes, size.toULong(), size.toULong(), fp)
+        fread(bytes, 1, size.toULong(), fp)
         val text = bytes.toKString()
         fclose(fp)
         return text

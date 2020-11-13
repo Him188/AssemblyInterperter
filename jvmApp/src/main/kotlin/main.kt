@@ -3,17 +3,43 @@ package moe.him188.assembly.interpreter
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.*
 import kotlinx.coroutines.flow.*
+import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
 
-
-object ExecuteAllMain {
+object Main {
     @JvmStatic
     fun main(args: Array<String>) {
-        val callback = RecorderInvocationCallback<InvokeAllAssemblyInterpreter>()
-        runBlocking {
-            executeAll(
-                """
+        val filename = args.getOrNull(0)
+        if (filename == null) {
+            runInReplMode()
+        } else {
+            runInAppMode(filename)
+        }
+    }
+}
+
+fun runInReplMode() {
+    runBlocking {
+        val channel = System.out.asOutputChannel(this)
+        runRepl(channel)
+        channel.close()
+    }
+}
+
+fun runInAppMode(filename: String) {
+    val callback = RecorderInvocationCallback<InvokeAllAssemblyInterpreter>()
+    runBlocking {
+        executeAll(
+            File(filename).readText(),
+            invocationCallback = callback,
+        ).also {
+            println(it)
+        }
+    }
+}
+
+private val txt = """
             CONST1: #1
             CONST2: #66
             
@@ -33,25 +59,7 @@ object ExecuteAllMain {
                     OUT
                     JMP LABEL3
             LABEL2: END
-        """.trimIndent(),
-                invocationCallback = callback
-            ).also {
-                println("Result: $it")
-            }
-        }
-
-        println(callback.dump())
-    }
-}
-
-object ReplMain {
-    @JvmStatic
-    fun main(args: Array<String>) {
-        runBlocking {
-            runRepl(System.out.asOutputChannel(this))
-        }
-    }
-}
+        """.trimIndent()
 
 @OptIn(ExperimentalCoroutinesApi::class)
 fun OutputStream.asOutputChannel(coroutineScope: CoroutineScope): SendChannel<Int> {

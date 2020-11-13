@@ -22,7 +22,11 @@ suspend fun runRepl(
             executeChannel.receiveAsFlow().collect { command ->
                 val call = callParser.parse(command, lineNumber++) ?: return@collect
                 this@supervisorScope.launch {
-                    executor.execute(call)
+                    try {
+                        executor.execute(call)
+                    } catch (e: AssemblyInterpreterException) {
+                        println(e.message)
+                    }
                 }
             }
         }
@@ -62,7 +66,7 @@ class SmartLineReader(
         coroutineScope.launch {
             while (isActive) {
                 print("ASSEMBLY> ")
-                temp.send(standardReadLine() ?: continue)
+                temp.send(standardReadLine() ?: break)
             }
         }
     }

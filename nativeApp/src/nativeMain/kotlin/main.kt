@@ -1,50 +1,57 @@
 package moe.him188.assembly.interpreter
 
+import kotlinx.cinterop.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import platform.posix.fclose
+import platform.posix.fopen
+import platform.posix.fread
+import platform.posix.stat
 
-fun main() {
-    runBlocking {
-        executeAll(
-            """
-            CONST1: #1
-            CONST2: #66
-            
-                    LDM CONST1
-                    STO 3
-                    
-                    LDM #2
-                    INC IX
-                    INC IX
-                    DEC IX
-                    
-                    LDX 2
-                    ADD #65
-            LABEL3: CMP CONST2
-                    JPN LABEL2
-            LABEL1: ADD #1
-                    OUT
-                    JMP LABEL3
-            LABEL2: END
-        """.trimIndent()
-        ).also {
-            println(it)
-        }
+@OptIn(ExperimentalUnsignedTypes::class)
+fun readFile(filename: String): String? {
+    val fp = fopen(filename, "r") ?: return null
+    memScoped {
+        val fileStat = alloc<stat>()
+        stat(filename, fileStat.ptr)
+        val size = fileStat.st_size + 1
+        val bytes = allocArray<ByteVar>(size)
+        fread(bytes, size.toULong(), size.toULong(), fp)
+        val text = bytes.toKString()
+        fclose(fp)
+        return text
     }
 }
 
-object ReplMain {
-    fun main(args: Array<String>) {
-        runBlocking {
-            val channel = Channel<Int>()
-            launch {
-                channel.receiveAsFlow().collect { print(it.toChar()) }
-            }
-            runRepl(channel)
-            channel.close()
+fun main(args: Array<String>) {
+    val filename = args.getOrNull(0)
+    if (filename == null) {
+        runInReplMode()
+    } else {
+        runInAppMode(filename)
+    }
+}
+
+fun runInReplMode() {
+    runBlocking {
+        val channel = Channel<Int>()
+        launch {
+            channel.receiveAsFlow().collect { print(it.toChar()) }
+        }
+        runRepl(channel)
+        channel.close()
+    }
+}
+
+fun runInAppMode(filename: String) {
+    runBlocking {
+        executeAll(
+            readFile(filename) ?: run { println("无法读取文件 $filename"); return@runBlocking }
+        ).also {
+            println(it)
         }
     }
 }

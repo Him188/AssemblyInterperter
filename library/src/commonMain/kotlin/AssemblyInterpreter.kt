@@ -299,5 +299,11 @@ class StandaloneCompareJumpInstructionException(override val message: String?, o
 class InapplicableLabelReferenceException(override val message: String?, override val cause: Throwable? = null) :
     ExecutionErrorException(message, cause)
 
-open class ExecutionErrorException(override val message: String?, override val cause: Throwable? = null) : Exception()
-class SyntaxErrorException(override val message: String?, override val cause: Throwable? = null) : Exception()
+open class ExecutionErrorException(override val message: String?, override val cause: Throwable? = null) :
+    AssemblyInterpreterException(message, cause)
+
+class SyntaxErrorException(override val message: String?, override val cause: Throwable? = null) :
+    AssemblyInterpreterException(message, cause)
+
+open class AssemblyInterpreterException(override val message: String?, override val cause: Throwable? = null) :
+    Exception()

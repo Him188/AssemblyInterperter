@@ -34,5 +34,8 @@ kotlin {
         }
         val jvmMain by getting
         val nativeTest by getting
+        all {
+            languageSettings.enableLanguageFeature("InlineClasses")
+        }
     }
 }

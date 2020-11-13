@@ -35,7 +35,8 @@ enum class Register {
 class ReplAssemblyInterpreter(
     inputFlow: ReceiveChannel<Int>,
     outputChannel: SendChannel<Int>,
-) : AssemblyInterpreter(inputFlow, outputChannel) {
+    invocationCallback: InvocationCallback<ReplAssemblyInterpreter> = InvocationCallback.noop(),
+) : AssemblyInterpreter(inputFlow, outputChannel, invocationCallback) {
     private val _calls = mutableListOf<Call>()
     override val calls: List<Call> get() = _calls
     public override suspend fun execute(call: Call): Boolean {
@@ -47,12 +48,13 @@ class InvokeAllAssemblyInterpreter(
     override val calls: List<Call>,
     inputFlow: ReceiveChannel<Int>,
     outputChannel: SendChannel<Int>,
-) : AssemblyInterpreter(inputFlow, outputChannel) {
+    invocationCallback: InvocationCallback<InvokeAllAssemblyInterpreter> = InvocationCallback.noop(),
+) : AssemblyInterpreter(inputFlow, outputChannel, invocationCallback) {
     suspend fun execute() {
         calls.forEachIndexed { index, call ->
             if (!super.executeAtLine(call, index)) {
-            return
-        }
+                return
+            }
         }
     }
 }
@@ -74,7 +76,8 @@ private inline class Accept(
 
 abstract class AssemblyInterpreter(
     private val inputChannel: ReceiveChannel<Int>,
-    private val outputChannel: SendChannel<Int>
+    private val outputChannel: SendChannel<Int>,
+    private val invocationCallback: InvocationCallback<AssemblyInterpreter> = InvocationCallback.noop(),
 ) {
     private val memory: Memory = Memory()
     private val register: MutableMap<Register, Int> = EnumMap<Register, Int>(Register::class).apply {
@@ -159,6 +162,7 @@ abstract class AssemblyInterpreter(
     }
 
     private fun Operand.resolveTargetInstructionIndex(): Int {
+        contract { returns() implies (this@resolveTargetInstructionIndex is OperandLabel) }
         val label = this.assertedCast<OperandLabel>().name
         calls.forEachIndexed { index, call ->
             if (call.label?.name == label) {
@@ -208,6 +212,7 @@ abstract class AssemblyInterpreter(
     @OptIn(FlowPreview::class)
     protected open suspend fun execute(call: Call): Boolean {
         if (call == Call.EMPTY_CALL) return true
+        invocationCallback.onExecute(this, call)
         when (call.instruction) {
             LABEL -> return true // no-op
             LDM -> ACC.value = call.operand.resolveIntValue(ACC_CONST + ACC_LABEL)
@@ -215,12 +220,26 @@ abstract class AssemblyInterpreter(
             LDI -> ACC.value = call.operand.resolveAddress().inMemory.inMemory
             LDX -> ACC.value = (call.operand.resolveAddress().value + IX.value).inMemory
             LDR -> IX.value = call.operand.resolveIntValue(ACC_CONST + ACC_LABEL)
-            STO -> call.operandAsConstAddress.value.writeMemory(ACC.value)
-            ADD -> ACC.value += call.operand.resolveIntValue(ACC_ALL)
-            INC -> call.operandAsRegister.value++
-            DEC -> call.operandAsRegister.value--
+            STO -> {
+                call.operandAsConstAddress.value.writeMemory(ACC.value)
+                invocationCallback.onMemoryWrite(this, call, call.operandAsConstAddress, ACC.value)
+            }
+            ADD -> {
+                ACC.value += call.operand.resolveIntValue(ACC_ALL)
+                invocationCallback.onMemoryWrite(this, call, ACC, ACC.value + call.operand.resolveIntValue(ACC_ALL))
+            }
+            INC -> {
+                call.operandAsRegister.value++
+                invocationCallback.onMemoryWrite(this, call, call.operandAsRegister, call.operandAsRegister.value + 1)
+            }
+            DEC -> {
+                call.operandAsRegister.value--
+                invocationCallback.onMemoryWrite(this, call, call.operandAsRegister, call.operandAsRegister.value - 1)
+            }
             JMP -> {
-                gotoInvoke(call.operand.resolveTargetInstructionIndex())
+                gotoInvoke(call.operand.resolveTargetInstructionIndex().also {
+                    invocationCallback.onJump(this, call, call.operand.assertedCast())
+                })
                 return false
             }
             CMP -> lastCompareResult = call.operand.resolveIntValue(ACC_CONST + ACC_LABEL) == ACC.value
@@ -230,12 +249,20 @@ abstract class AssemblyInterpreter(
                     ?: throw StandaloneCompareJumpInstructionException("Found no previous CMP instruction before an ${call.instruction.name}")
                 this.lastCompareResult = null
                 if (call.instruction == JPE == lastCompareResult) { // (JPE && lastCompareResult) || (JPN && !lastCompareResult)
-                    gotoInvoke(call.operand.resolveTargetInstructionIndex())
+                    gotoInvoke(call.operand.resolveTargetInstructionIndex().also {
+                        invocationCallback.onJump(this, call, call.operand.assertedCast())
+                    })
                     return false
                 }
             }
-            IN -> ACC.value = inputChannel.receive()
-            OUT -> outputChannel.send(ACC.value)
+            IN -> {
+                ACC.value = inputChannel.receive()
+                invocationCallback.onInput(this, call, ACC.value)
+            }
+            OUT -> {
+                outputChannel.send(ACC.value)
+                invocationCallback.onOutput(this, call, ACC.value)
+            }
             END -> return false
         }
         return true

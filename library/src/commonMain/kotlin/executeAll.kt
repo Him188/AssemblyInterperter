@@ -8,14 +8,16 @@ import kotlinx.coroutines.flow.*
 @OptIn(FlowPreview::class)
 suspend fun executeAll(
     text: String,
-    input: String = ""
+    input: String = "",
+    invocationCallback: InvocationCallback<InvokeAllAssemblyInterpreter> = InvocationCallback.noop()
 ): String {
     val output = Channel<Int>(Channel.BUFFERED)
     coroutineScope {
         InvokeAllAssemblyInterpreter(
             calls = text.parseAllCalls(),
             inputFlow = input.asSequence().asFlow().map { it.toInt() }.produceIn(this),
-            outputChannel = output
+            outputChannel = output,
+            invocationCallback
         ).run {
             execute()
             output.close()

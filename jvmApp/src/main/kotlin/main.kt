@@ -10,6 +10,7 @@ import java.io.OutputStream
 object ExecuteAllMain {
     @JvmStatic
     fun main(args: Array<String>) {
+        val callback = RecorderInvocationCallback<InvokeAllAssemblyInterpreter>()
         runBlocking {
             executeAll(
                 """
@@ -32,11 +33,14 @@ object ExecuteAllMain {
                     OUT
                     JMP LABEL3
             LABEL2: END
-        """.trimIndent()
+        """.trimIndent(),
+                invocationCallback = callback
             ).also {
-                println(it)
+                println("Result: $it")
             }
         }
+
+        println(callback.dump())
     }
 }
 

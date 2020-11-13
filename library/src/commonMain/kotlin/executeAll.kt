@@ -5,23 +5,29 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.*
 
+data class ExecuteResult(
+    val interpreter: AssemblyInterpreter,
+    val output: String,
+)
+
 @OptIn(FlowPreview::class)
 suspend fun executeAll(
     text: String,
     input: String = "",
     invocationCallback: InvocationCallback<InvokeAllAssemblyInterpreter> = InvocationCallback.noop()
-): String {
+): ExecuteResult {
     val output = Channel<Int>(Channel.BUFFERED)
-    coroutineScope {
+    val interpreter = coroutineScope {
         InvokeAllAssemblyInterpreter(
             calls = text.parseAllCalls(),
             inputFlow = input.asSequence().asFlow().map { it.toInt() }.produceIn(this),
             outputChannel = output,
             invocationCallback
-        ).run {
+        ).apply {
             execute()
             output.close()
         }
     }
-    return output.receiveAsFlow().toList().joinToString("") { it.toChar().toString() }
+    val out = output.receiveAsFlow().toList().joinToString("") { it.toChar().toString() }
+    return ExecuteResult(interpreter, out)
 }

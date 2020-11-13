@@ -47,12 +47,5 @@ fun runInReplMode() {
 }
 
 fun runInAppMode(filename: String) {
-    runBlocking {
-        executeAll(
-            readFile(filename) ?: run { println("无法读取文件 $filename"); return@runBlocking }
-        ).also {
-            println(it)
-        }
-    }
-    readLine()
+    runBlocking { commonRunInAppMode(readFile(filename) ?: run { println("无法读取文件 $filename"); return@runBlocking }) }
 }

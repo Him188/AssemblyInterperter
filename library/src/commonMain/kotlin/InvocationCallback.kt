@@ -87,20 +87,67 @@ class RecorderInvocationCallback<T : AssemblyInterpreter> : InvocationCallback<T
     }
 }
 
-fun RecorderInvocationCallback<*>.dump(): String = buildString {
-    appendLine("|\t\t|\t\t|\t\t|\t\t|")
-    for (record in this@dump.toList()) {
-        append(record)
-        appendLine()
-        continue
+fun AssemblyInterpreter.dump(callback: RecorderInvocationCallback<*>): String = buildString {
+    val map = LinkedHashMap<String, Int>()
+    map["IX"] = 0
+    map["ACC"] = 0
+    val records = callback.toList()
+
+    // analyze and init map
+    for (record in records) {
         when (record) {
             is RecorderInvocationCallback.Record.WriteAddress -> {
-                // append()
+                map[record.target.value.toString()] = 0
             }
-            is RecorderInvocationCallback.Record.WriteRegister -> TODO()
-            is RecorderInvocationCallback.Record.Input -> TODO()
-            is RecorderInvocationCallback.Record.Output -> TODO()
-            is RecorderInvocationCallback.Record.Jump -> TODO()
+            is RecorderInvocationCallback.Record.WriteRegister -> {
+                map[record.target.name] = 0
+            }
+            else -> {
+            }
         }
     }
+    map["OUT"] = 0
+
+    val keysList = map.keys.toList() // indexed
+
+    appendLine("+" + "-".repeat(30) + "+")
+    appendLine(keysList.joinToString("|", prefix = "|", postfix = "|") { "\t$it\t" }) // header
+    appendLine("+" + "-".repeat(30) + "+")
+
+    fun appendChanged(
+        keyName: String,
+        newValue: Int
+    ) {
+        val index = keysList.indexOf(keyName)
+        val before = keysList.slice(0 until index)
+        val after = keysList.slice((index + 1)..keysList.lastIndex)
+        append("|")
+        before.forEach { _ -> append("\t\t").append("|") }
+        append("\t$newValue\t")
+        append("|")
+        after.forEach { _ -> append("\t\t").append("|") }
+        appendLine()
+    }
+
+    for (record in records) {
+        when (record) {
+            is RecorderInvocationCallback.Record.WriteAddress -> {
+                appendChanged(record.target.value.toString(), record.value)
+            }
+            is RecorderInvocationCallback.Record.WriteRegister -> {
+                appendChanged(record.target.name, record.value)
+            }
+            is RecorderInvocationCallback.Record.Input -> {
+                appendChanged("ACC", record.value)
+            }
+            is RecorderInvocationCallback.Record.Output -> {
+                appendChanged("OUT", record.value)
+            }
+            is RecorderInvocationCallback.Record.Jump -> {
+                appendLine("| \t\t JUMP TO ${record.target.name} \t\t |")
+            }
+        }
+    }
+
+    appendLine("+" + "-".repeat(30) + "+")
 }

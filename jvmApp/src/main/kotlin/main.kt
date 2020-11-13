@@ -28,15 +28,11 @@ fun runInReplMode() {
 }
 
 fun runInAppMode(filename: String) {
-    val callback = RecorderInvocationCallback<InvokeAllAssemblyInterpreter>()
-    runBlocking {
-        executeAll(
-            File(filename).readText(),
-            invocationCallback = callback,
-        ).also {
-            println(it)
-        }
-    }
+    runBlocking { commonRunInAppMode(File(filename).readText()) }
+}
+
+suspend fun main() {
+    commonRunInAppMode(txt)
 }
 
 private val txt = """

@@ -59,7 +59,7 @@ class InvokeAllAssemblyInterpreter(
     }
 }
 
-private inline class Accept(
+inline class Accept(
     val value: Int
 ) {
     operator fun plus(accept: Accept): Accept = Accept(this.value or accept.value)
@@ -84,50 +84,51 @@ abstract class AssemblyInterpreter(
         put(IX, 0)
     }
 
-    private inline fun <reified T : Operand> Operand.assertedCast(): T {
+    inline fun <reified T : Operand> Operand.assertedCast(): T {
         contract { returns() implies (this@assertedCast is T) }
         if (this !is T) throw InapplicableOperandException("Inapplicable operand: expected ${T::class.simpleName}, given ${this::class.simpleName}")
         return this
     }
 
-    private fun Int.writeMemory(value: Int) {
+
+    fun Int.writeMemory(value: Int) {
         memory.setMemoryAt(this, value)
     }
 
-    private var Int.inMemory: Int
+    var Int.inMemory: Int
         get() = memory.getMemoryAt(this)
             ?: throw EmptyMemoryException("Memory location at $this is currently empty so can't be accessed.")
         set(value) {
             writeMemory(value)
         }
 
-    private var OperandConstInt.inMemory: Int
+    var OperandConstInt.inMemory: Int
         get() = this.value.inMemory
         set(value) {
             this.value.inMemory = value
         }
 
-    private var OperandConstAddress.inMemory: Int
+    var OperandConstAddress.inMemory: Int
         get() = this.value.inMemory
         set(value) {
             this.value.inMemory = value
         }
 
-    private fun Int.getMemory(): Int? = memory.getMemoryAt(this)
+    fun Int.getMemory(): Int? = memory.getMemoryAt(this)
 
-    private var Register.value: Int
+    var Register.value: Int
         get() = register[this]
             ?: throw EmptyRegisterException("Register ${this.name} is currently empty so can't be accessed.")
         set(value) {
             register[this] = value
         }
 
-    private val Call.operandAsConstInt get() = operand.assertedCast<OperandConstInt>()
-    private val Call.operandAsConstAddress get() = operand.assertedCast<OperandConstAddress>()
-    private val Call.operandAsRegister get() = operand.assertedCast<OperandRegisterName>().correspondingRegister
+    val Call.operandAsConstInt get() = operand.assertedCast<OperandConstInt>()
+    val Call.operandAsConstAddress get() = operand.assertedCast<OperandConstAddress>()
+    val Call.operandAsRegister get() = operand.assertedCast<OperandRegisterName>().correspondingRegister
 
-    private fun Operand.resolveConstInt() = resolveIntValue(ACC_CONST + ACC_LABEL)
-    private fun Operand.resolveIntValue(accept: Accept): Int {
+    fun Operand.resolveConstInt() = resolveIntValue(ACC_CONST + ACC_LABEL)
+    fun Operand.resolveIntValue(accept: Accept): Int {
         return this.fold(
             onConstInt = { it.value },
             onAddress = { it.inMemory },
@@ -136,7 +137,7 @@ abstract class AssemblyInterpreter(
         )
     }
 
-    private tailrec fun OperandLabel.resolveConstReference(): OperandConst<*> {
+    tailrec fun OperandLabel.resolveConstReference(): OperandConst<*> {
         val labelCall = calls.getByLabel(name)
 
         if (labelCall.instruction == LABEL) {
@@ -149,7 +150,7 @@ abstract class AssemblyInterpreter(
         }
     }
 
-    private fun Operand.resolveAddress(): OperandConstAddress {
+    fun Operand.resolveAddress(): OperandConstAddress {
         fun throwInapplicable(): Nothing =
             throw InapplicableOperandException("Inapplicable operand: expected ${OperandConstAddress::class.simpleName} or ${OperandLabel::class.simpleName}, given ${this::class.simpleName}")
 
@@ -161,7 +162,7 @@ abstract class AssemblyInterpreter(
         )
     }
 
-    private fun Operand.resolveTargetInstructionIndex(): Int {
+    fun Operand.resolveTargetInstructionIndex(): Int {
         contract { returns() implies (this@resolveTargetInstructionIndex is OperandLabel) }
         val label = this.assertedCast<OperandLabel>().name
         calls.forEachIndexed { index, call ->
@@ -172,7 +173,7 @@ abstract class AssemblyInterpreter(
         throw UnresolvedLabelException("Unresolved label: $label")
     }
 
-    private inline fun <R> Operand.fold(
+    inline fun <R> Operand.fold(
         onConstInt: (const: OperandConstInt) -> R,
         onAddress: (address: OperandConstAddress) -> R,
         onRegister: (register: Register) -> R,

@@ -54,4 +54,5 @@ fun runInAppMode(filename: String) {
             println(it)
         }
     }
+    readLine()
 }

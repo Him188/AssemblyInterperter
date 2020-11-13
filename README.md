@@ -6,4 +6,4 @@ Allows to execute the assembly code in live environment with debugging tools.
 
 ## Build project
 
-Execute `gradlew` or `gradlew.bat`.
+Execute `gradlew build` or `gradlew.bat build`.
